@@ -1,0 +1,24 @@
+# Core
+jupyter>=1.0.0
+pdf2image>=1.17.0
+Pillow>=10.0.0
+opencv-python-headless>=4.9.0
+numpy>=1.26.0
+matplotlib>=3.8.0
+
+# OCR
+pytesseract>=0.3.10
+easyocr>=1.7.0
+# google-cloud-vision>=3.7.0          # Uncomment if using Google Cloud Vision
+# azure-ai-vision-imageanalysis>=1.0.0 # Uncomment if using Azure AI Vision
+
+# Translation
+anthropic>=0.40.0
+# google-cloud-translate>=3.15.0      # Uncomment if using Google Translate
+# transformers>=4.40.0                # Uncomment for NLLB / IndicTrans2
+# torch>=2.0                          # Uncomment for NLLB / IndicTrans2
+# sentencepiece>=0.2.0               # Uncomment for NLLB / IndicTrans2
+
+# Utilities
+tqdm>=4.60
+pydantic>=2.0
