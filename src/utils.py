@@ -205,3 +205,87 @@ def estimate_text_color(
 
     median_color = np.median(text_pixels, axis=0).astype(int)
     return tuple(median_color.tolist())
+
+
+# ── Fidelity and region-preservation helpers ──────────────────────────────────
+
+
+def build_text_edit_mask(
+    image_size: tuple[int, int],
+    text_blocks: list[dict],
+    padding: int = 0,
+) -> np.ndarray:
+    """Build a binary mask where text regions are editable (255) and others are fixed (0).
+
+    Args:
+        image_size: Tuple of (width, height).
+        text_blocks: OCR blocks containing a ``bbox`` key with [x0, y0, x1, y1].
+        padding: Extra pixels around each bbox included in editable region.
+
+    Returns:
+        Single-channel uint8 mask of shape (height, width).
+    """
+    width, height = image_size
+    mask = np.zeros((height, width), dtype=np.uint8)
+
+    for block in text_blocks:
+        if "bbox" not in block:
+            continue
+        x0, y0, x1, y1 = normalize_bbox(block["bbox"])
+        x0 = max(0, x0 - padding)
+        y0 = max(0, y0 - padding)
+        x1 = min(width, x1 + padding)
+        y1 = min(height, y1 + padding)
+        if x1 > x0 and y1 > y0:
+            mask[y0:y1, x0:x1] = 255
+
+    return mask
+
+
+def preserve_non_text_regions(
+    original: Image.Image,
+    translated: Image.Image,
+    text_blocks: list[dict],
+    padding: int = 0,
+) -> Image.Image:
+    """Return an image where only OCR text regions may differ from the original.
+
+    This is useful as a final safety pass to guarantee logos, illustrations, and
+    other non-text pixels remain bit-identical to the input.
+    """
+    if original.size != translated.size:
+        raise ValueError("original and translated images must have the same size")
+
+    original_arr = np.array(original.convert("RGB"))
+    translated_arr = np.array(translated.convert("RGB"))
+    editable_mask = build_text_edit_mask(original.size, text_blocks, padding=padding)
+
+    locked = editable_mask == 0
+    translated_arr[locked] = original_arr[locked]
+
+    return Image.fromarray(translated_arr)
+
+
+def compute_non_text_change_ratio(
+    original: Image.Image,
+    candidate: Image.Image,
+    text_blocks: list[dict],
+    padding: int = 0,
+) -> float:
+    """Compute fraction of non-text pixels that changed between two images."""
+    if original.size != candidate.size:
+        raise ValueError("original and candidate images must have the same size")
+
+    original_arr = np.array(original.convert("RGB"))
+    candidate_arr = np.array(candidate.convert("RGB"))
+    editable_mask = build_text_edit_mask(original.size, text_blocks, padding=padding)
+
+    non_text = editable_mask == 0
+    non_text_count = int(np.count_nonzero(non_text))
+    if non_text_count == 0:
+        return 0.0
+
+    different = np.any(original_arr != candidate_arr, axis=2)
+    changed_outside_text = int(np.count_nonzero(different & non_text))
+
+    return changed_outside_text / non_text_count

@@ -16,6 +16,7 @@ The system processes each page as an image through 4 stages:
 2. **Translate** — Translate extracted text to target language
 3. **Inpaint** — Remove original text from image while preserving background
 4. **Overlay** — Render translated text at original positions with Indic fonts
+5. **Safety lock** — Restore all non-text pixels from the original page to guarantee only text regions change
 
 ## Project Structure
 
@@ -77,6 +78,33 @@ TRANSLATOR_ENGINE = "claude"
 INPAINTING_METHOD = "opencv_telea"
 ```
 Run all cells. Output saved to `data/output/pipeline/`.
+
+
+## Strict Preservation Mode (recommended for scanned docs)
+
+If you need a hard guarantee that logos, diagrams, and backgrounds remain unchanged, run a final
+post-processing step after overlay:
+
+```python
+from src.utils import preserve_non_text_regions, compute_non_text_change_ratio
+
+final_page = preserve_non_text_regions(
+    original=input_page,
+    translated=translated_page,
+    text_blocks=ocr_blocks,
+    padding=2,
+)
+
+leakage = compute_non_text_change_ratio(
+    original=input_page,
+    candidate=final_page,
+    text_blocks=ocr_blocks,
+    padding=2,
+)
+print(f"Non-text change ratio: {leakage:.6f}")
+```
+
+This keeps all pixels outside OCR boxes bit-identical to the input image.
 
 ## Environment Variables
 
